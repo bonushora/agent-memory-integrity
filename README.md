@@ -37,10 +37,10 @@ The nine edits: T1 content tamper, T2 tail truncation, T3 middle deletion, T4 re
 | CrewAI long-term memory, LanceDB dataset | crewai 1.15.23 | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted |
 | Vertex AI Agent Engine Memory Bank, managed store, edits through the data-plane API | google-cloud-aiplatform 2.4.0 | accepted | accepted | accepted | n/a | accepted | accepted | accepted | accepted | n/a |
 | Letta core memory checkpoint history | letta 0.16.8 | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted |
-| Mem0 local Qdrant store | mem0ai 2.0.20 | accepted | accepted | accepted | accepted | accepted | error | accepted | accepted | accepted |
-| inspeximus, receipts off (default), read path | inspeximus 3.0.0 | accepted | accepted | accepted | accepted | accepted | error | accepted | accepted | accepted |
-| inspeximus, receipts on with a key, attacker holds the store's directory | inspeximus 3.0.0 | reported | reported | reported | reported | reported | error | reported | reported | reported |
-| inspeximus, receipts on with a key, attacker also holds the user's config home | inspeximus 3.0.0 | reported | accepted | reported | reported | reported | error | reported | reported | accepted |
+| Mem0 local Qdrant store | mem0ai 2.0.20 | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted |
+| inspeximus, receipts off (default), read path | inspeximus 3.0.0 | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted | accepted |
+| inspeximus, receipts on with a key, attacker holds the store's directory | inspeximus 3.0.0 | reported | reported | reported | reported | reported | reported | reported | reported | reported |
+| inspeximus, receipts on with a key, attacker also holds the user's config home | inspeximus 3.0.0 | reported | accepted | reported | reported | reported | reported | reported | reported | accepted |
 | langgraph-ledger over `SqliteSaver`, hash-chained ledger, `verify_thread()` audit | langgraph-ledger 0.3.0 | reported | reported | reported | reported | accepted | reported | reported | accepted | reported |
 | memory-blackbox memory.md watcher, agent process alive, scan audit | memory-blackbox 0.1.1 | reported | reported | reported | reported | reported | reported | reported | reported | reported |
 | memory-blackbox memory.md watcher, agent restarted before the scan, scan audit | memory-blackbox 0.1.1 (0.1.0 served all eight) | reported | reported | reported | reported | reported | reported | reported | reported | accepted |
