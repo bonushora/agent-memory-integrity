@@ -35,9 +35,11 @@ service raises nothing on an out-of-band patch, so revisions are an audit
 record an investigator can read afterwards, not a check the agent gets. The
 verify() here is the agent's read path, retrieve for its scope, which has no
 integrity logic; this row is measured for the record, like the LangGraph
-checkpointers. Cloud Audit Logs can record the patch and delete calls at the
-platform layer when Data Access logging is switched on for aiplatform (it is
-off by default); that is outside the store and not part of this row.
+checkpointers. Cloud Audit Logs record every create, update and delete of a
+memory in the project's Admin Activity log, on by default (permission type
+ADMIN_WRITE, for example aiplatform.memories.update), naming the principal
+and key that made the change; that is outside the store, the read path never
+consults it, and it is not part of this row.
 
 Needs: AGMI_GCP_PROJECT set, Google application default credentials
 (GOOGLE_APPLICATION_CREDENTIALS pointing at a service-account key with
