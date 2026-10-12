@@ -14,6 +14,7 @@ Generated from the results file by `agmi.render`; do not edit by hand. Run of 20
 | llamaindex-memory-sqlite | read | accepted | accepted | accepted | accepted | accepted |
 | crewai-ltm-lancedb | read | accepted | accepted | accepted | accepted | accepted |
 | vertex-memory-bank | read | accepted | accepted | accepted | n/a | accepted |
+| openclaw-memory-md | read | accepted | accepted | accepted | accepted | accepted |
 | letta-block-history | read | accepted | accepted | accepted | accepted | accepted |
 | mem0-qdrant-local | read | accepted | accepted | accepted | accepted | accepted |
 | inspeximus-default | read | accepted | accepted | accepted | accepted | accepted |
@@ -137,6 +138,20 @@ Generated from the results file by `agmi.render`; do not edit by hand. Run of 20
 - `cross_replay`: accepted. accepted silently.
 - `rollback_replay`: accepted. accepted silently.
 - `metadata_tamper`: accepted. accepted silently.
+
+### openclaw-memory-md
+
+Measured on: openclaw 2026.10.1 from npm, read through its memory_get function in a fresh Node process per read; Linux x86_64 with Node 24.21.0, reproduced on macOS arm64 with Node 26.11.0
+
+- `tamper`: accepted. accepted silently.
+- `truncate`: accepted. accepted silently.
+- `delete_middle`: accepted. accepted silently.
+- `reorder`: accepted. accepted silently.
+- `forge`: accepted. accepted silently.
+- `cross_replay`: accepted. accepted silently.
+- `rollback_replay`: accepted. accepted silently.
+- `metadata_tamper`: accepted. accepted silently.
+- `snapshot_rollback`: accepted. the older copy opened as current; the newest genuine record is gone without an error.
 
 ### langgraph-sqlite-store
 

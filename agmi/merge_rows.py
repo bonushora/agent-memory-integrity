@@ -13,7 +13,8 @@ rows into the main results file:
 
 Each named row replaces the row with the same label in place, or is appended
 if the label is new. The base file's date, platform and attack versions are
-kept, so --measured-on records where and when the merged rows were measured.
+kept, so --measured-on records where the merged rows were measured, and each
+merged row carries the other run's date as measured_date.
 The merge refuses if the two runs used different attack versions, or if a
 named row is missing from the other run.
 """
@@ -43,6 +44,8 @@ def merge(base: dict, extra: dict, labels: list[str], measured_on: str | None = 
         row = json.loads(json.dumps(by_label[lb]))
         if measured_on is not None:
             row["measured_on"] = measured_on
+        if extra.get("date"):
+            row["measured_date"] = extra["date"]
         if lb in index:
             rows[index[lb]] = row
         else:

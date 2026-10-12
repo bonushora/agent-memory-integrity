@@ -22,6 +22,7 @@ ROWS = {
     "CrewAI long-term memory, LanceDB dataset": "crewai-ltm-lancedb",
     "Vertex AI Agent Engine Memory Bank, managed store, edits through the data-plane API":
         "vertex-memory-bank",
+    "OpenClaw agent memory, `MEMORY.md` read through `memory_get`": "openclaw-memory-md",
     "Letta core memory checkpoint history": "letta-block-history",
     "Mem0 local Qdrant store": "mem0-qdrant-local",
     "inspeximus, receipts off (default), read path": "inspeximus-default",

@@ -52,3 +52,10 @@ def test_cli_writes_the_file_in_the_runner_format(tmp_path):
     assert b.read_text() == json.dumps(out, indent=2) + "\n"
     e.write_text(json.dumps(run([("q", "reported")]), indent=2) + "\n")
     assert main([str(b), str(e), "--labels", "a"]) == 1
+
+
+def test_a_merged_row_carries_the_date_it_was_measured():
+    base = run([("a", "accepted")])
+    out = merge(base, run([("z", "reported")], date="2026-10-12"), ["z"])
+    assert out["rows"][1]["measured_date"] == "2026-10-12"
+    assert out["date"] == "2026-10-08" and "measured_date" not in out["rows"][0]
