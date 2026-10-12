@@ -170,6 +170,12 @@ def full_scorecard() -> str:
             VertexMemoryBankAdapter = None  # noqa: N806 - row only with AGMI_GCP_PROJECT
     except ImportError:
         VertexMemoryBankAdapter = None  # noqa: N806
+    from agmi.adapters.openclaw_memory import openclaw_dir
+    if openclaw_dir():  # row only with AGMI_OPENCLAW_DIR; a wrong version fails loudly
+        from agmi.adapters.openclaw_memory import OpenClawMemoryAdapter
+        openclaw_row = [("openclaw-memory-md", OpenClawMemoryAdapter(), None)]
+    else:
+        openclaw_row = []
     try:
         import langgraph.checkpoint.redis  # noqa: F401
         from agmi.adapters.langgraph_redis import LangGraphRedisAdapter, redis_uri
@@ -246,6 +252,7 @@ def full_scorecard() -> str:
         *([("llamaindex-memory-sqlite", llamaindex_memory, None)] if llamaindex_memory else []),
         *([("crewai-ltm-lancedb", crewai_ltm, None)] if crewai_ltm else []),
         *([("vertex-memory-bank", VertexMemoryBankAdapter(), None)] if VertexMemoryBankAdapter else []),
+        *openclaw_row,
         *([("langgraph-sqlite-store", None, lg_store)] if lg_store else []),
         *([letta_row] if letta_row else []),
         *([("letta-archival", None, letta_archival)] if letta_archival else []),

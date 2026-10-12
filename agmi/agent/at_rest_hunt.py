@@ -111,6 +111,9 @@ def at_rest_target(name: str) -> MemoryAdapter:
     if name == "inspeximus-rcpt+dir+home":
         from agmi.adapters.inspeximus_rows import InspeximusRowsSidecarHeadAdapter
         return InspeximusRowsSidecarHeadAdapter()
+    if name == "openclaw-memory-md":
+        from agmi.adapters.openclaw_memory import OpenClawMemoryAdapter
+        return OpenClawMemoryAdapter()
     if name == "vertex-memory-bank":
         from agmi.adapters.vertex_memory_bank import VertexMemoryBankAdapter
         return VertexMemoryBankAdapter()
@@ -125,5 +128,5 @@ def at_rest_target(name: str) -> MemoryAdapter:
     raise SystemExit(
         f"unknown at-rest target {name!r}; choose one of: reference, "
         f"langgraph-sqlite, llamaindex, crewai, openai-agents, inspeximus-default, "
-        f"inspeximus-rcpt+dir, inspeximus-rcpt+dir+home, vertex-memory-bank, "
+        f"inspeximus-rcpt+dir, inspeximus-rcpt+dir+home, vertex-memory-bank, openclaw-memory-md, "
         f"atmem-chain, atmem-chain+checkpoint")
