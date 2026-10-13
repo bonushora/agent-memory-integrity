@@ -6,9 +6,11 @@
 
 import copy
 import os
+from pathlib import Path
 
 import pytest
 
+from agmi.adapters.base import Record
 from agmi.adapters.surgical_devops import (
     EXPECTED_NODE_VERSION,
     EXPECTED_SDO_COMMIT,
@@ -53,7 +55,8 @@ def test_clean_g7_is_seeded_and_verified_by_real_sdo_apis():
         assert adapter.verify() is True
         records = adapter.read_all_raw()
         assert len(records) == 5
-        assert all(adapter.owner_of(record) == adapter._primary_identity for record in records)
+        assert all(adapter.owner_of(record) == str(adapter._primary_root.resolve())
+                   for record in records)
         assert all(record.fields["envelope"]["payload"]["state"] == "CLAIMED"
                    for record in records)
     finally:
@@ -115,9 +118,10 @@ def test_t6_replays_the_genuine_donor_envelope_byte_for_byte():
         assert donor_after.fields["envelopeBytes"] == donor_bytes
         assert adapter.identity_of(replayed) == victim_identity
         assert adapter.identity_of(donor_after) == donor_identity
-        assert adapter.owner_of(replayed) == adapter._primary_identity
-        assert adapter.owner_of(donor_after) == adapter._other_identity
-        assert adapter.read_meta(replayed.seq)["physicalWorkspaceIdentity"] == adapter._other_identity
+        assert adapter.owner_of(replayed) == str(adapter._primary_root.resolve())
+        assert adapter.owner_of(donor_after) == str(adapter._other_root.resolve())
+        assert (replayed.fields["envelope"]["payload"]["physicalWorkspaceIdentity"]
+                == adapter._other_identity)
 
         adapter.reload()
         assert adapter.verify() is False
@@ -167,3 +171,72 @@ def test_t9_attack_contract_runs_without_adapter_shortcuts():
     result = SnapshotRollbackAttack().run(adapter)
     assert result.error is None and result.guard is None, (result.error, result.guard)
     assert result.detected
+
+
+def test_owner_of_requires_and_verifies_the_records_own_g7_location():
+    adapter = SurgicalDevOpsAdapter()
+    adapter.setup()
+    try:
+        adapter.seed(2)
+        primary = adapter.read_all_raw()[0]
+        donor = adapter.read_other_raw()[0]
+
+        assert adapter.owner_of(primary) == str(adapter._primary_root.resolve())
+        assert adapter.owner_of(donor) == str(adapter._other_root.resolve())
+
+        # A caller-supplied identity cannot determine the C3 owner.
+        primary.fields["readPhysicalWorkspaceIdentity"] = adapter._other_identity
+        assert adapter.owner_of(primary) == str(adapter._primary_root.resolve())
+
+        with pytest.raises(RuntimeError, match="no verifiable storage location"):
+            adapter.owner_of(Record(seq=primary.seq, fields=primary.fields))
+
+        actual_location = primary.storage_path
+        primary.storage_path = Path(donor.storage_path)
+        with pytest.raises(RuntimeError, match="filename does not match"):
+            adapter.owner_of(primary)
+        primary.storage_path = actual_location
+    finally:
+        adapter.teardown()
+
+
+def test_write_meta_round_trips_received_metadata_without_attack_shortcuts():
+    adapter = SurgicalDevOpsAdapter()
+    adapter.setup()
+    try:
+        adapter.seed(3)
+        seq = 1
+        before = adapter.read_all_raw()[seq]
+        payload_before = copy.deepcopy(before.fields["envelope"]["payload"])
+        meta = adapter.read_meta(seq)
+        meta["agmi_meta_tampered"] = {"review": "opaque adapter input"}
+
+        adapter.write_meta(seq, meta)
+
+        after = adapter.read_all_raw()[seq]
+        assert adapter.read_meta(seq) == meta
+        assert after.fields["envelope"]["payload"] == payload_before
+        assert after.fields["envelope"]["physicalWorkspaceIdentity"] == adapter._primary_identity
+        assert adapter.verify() is False
+    finally:
+        adapter.teardown()
+
+
+def test_delete_raw_rejects_invalid_positions_without_changing_g7():
+    adapter = SurgicalDevOpsAdapter()
+    adapter.setup()
+    try:
+        adapter.seed(3)
+        before = adapter.artifact_fingerprints()["g7"]
+
+        for position in (-1, 3, 100):
+            with pytest.raises(IndexError, match="G7 position out of range"):
+                adapter.delete_raw(position)
+        for position in (True, None, 1.5, "0"):
+            with pytest.raises(TypeError, match="G7 position must be an integer"):
+                adapter.delete_raw(position)
+
+        assert adapter.artifact_fingerprints()["g7"] == before
+        assert len(adapter.read_all_raw()) == 3
+    finally:
+        adapter.teardown()

@@ -27,6 +27,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from agmi.adapters.base import MemoryAdapter, Record
@@ -35,6 +36,13 @@ EXPECTED_SDO_COMMIT = "f267cf38b0ac321b6361602973b4d34b5c043e1c"
 EXPECTED_NODE_VERSION = "v24.18.0"
 EXPECTED_SDO_VERSION = "2.6.0-rc.6"
 BRIDGE = Path(__file__).resolve().parents[1] / "bridges" / "surgical_devops_bridge.js"
+
+
+@dataclass
+class _LocatedRecord(Record):
+    """Raw record together with the concrete G7 file it was read from."""
+
+    storage_path: Path
 
 
 def surgical_devops_repo() -> str | None:
@@ -170,33 +178,26 @@ class SurgicalDevOpsAdapter(MemoryAdapter):
         ordered.extend(by_name[name] for name in sorted(by_name))
         return ordered
 
-    def _records(self, state_root: Path, known: list[str],
-                 read_identity: str) -> list[Record]:
+    def _records(self, state_root: Path, known: list[str]) -> list[Record]:
         records = []
         for seq, target in enumerate(self._ordered_paths(state_root, known)):
             envelope_bytes = target.read_bytes()
-            records.append(Record(seq=seq, fields={
+            records.append(_LocatedRecord(seq=seq, fields={
                 "filename": target.name,
                 "envelope": json.loads(envelope_bytes),
                 "envelopeBytes": envelope_bytes,
-                # Transient adapter context, never written to G7.  T6's owner
-                # is the fixture through which the record is read, while its
-                # signed physicalWorkspaceIdentity remains untouched.
-                "readPhysicalWorkspaceIdentity": read_identity,
-            }))
+            }, storage_path=target.resolve(strict=True)))
         return records
 
     def read_all_raw(self) -> list[Record]:
-        return self._records(
-            self._primary_root, self._primary_fingerprints, self._primary_identity
-        )
+        return self._records(self._primary_root, self._primary_fingerprints)
 
     def read_other_raw(self) -> list[Record]:
-        return self._records(
-            self._other_root, self._other_fingerprints, self._other_identity
-        )
+        return self._records(self._other_root, self._other_fingerprints)
 
     def _path_at(self, seq: int) -> Path | None:
+        if isinstance(seq, bool) or not isinstance(seq, int):
+            raise TypeError("G7 position must be an integer")
         paths = self._ordered_paths(self._primary_root, self._primary_fingerprints)
         return paths[seq] if 0 <= seq < len(paths) else None
 
@@ -213,9 +214,11 @@ class SurgicalDevOpsAdapter(MemoryAdapter):
         target.chmod(0o600)
 
     def delete_raw(self, seq: int) -> None:
+        """Delete one G7 record by position, rejecting every invalid position."""
         target = self._path_at(seq)
-        if target is not None:
-            target.unlink()
+        if target is None:
+            raise IndexError(f"G7 position out of range: {seq}")
+        target.unlink()
 
     def reload(self) -> None:
         # Every bridge invocation starts a fresh Node process and re-requires
@@ -271,24 +274,47 @@ class SurgicalDevOpsAdapter(MemoryAdapter):
         }, sort_keys=True)
 
     def owner_of(self, record: Record) -> str | None:
-        # C3 asks which context exposes the slot, not which identity the
-        # replayed signed envelope claims.  This value is attached only while
-        # reading a real primary/donor fixture and is never persisted.
-        return record.fields.get("readPhysicalWorkspaceIdentity")
+        # C3 asks which context owns the slot, not which context the replayed
+        # envelope claims.  Derive that context from the verified G7 location
+        # the record was actually read from; never accept an identity stamped
+        # into the record at read time.
+        location = getattr(record, "storage_path", None)
+        if not isinstance(location, Path):
+            raise RuntimeError("G7 record has no verifiable storage location")
+        if location.is_symlink() or not location.is_file():
+            raise RuntimeError("G7 record storage location is missing or unsafe")
+        resolved = location.resolve(strict=True)
+        filename = record.fields.get("filename")
+        if not isinstance(filename, str) or resolved.name != filename:
+            raise RuntimeError("G7 record filename does not match its storage location")
+        envelope_bytes = record.fields.get("envelopeBytes")
+        if not isinstance(envelope_bytes, bytes) or resolved.read_bytes() != envelope_bytes:
+            raise RuntimeError("G7 record bytes do not match its storage location")
+        roots = {
+            self._primary_root.resolve(strict=True),
+            self._other_root.resolve(strict=True),
+        }
+        if resolved.parent not in roots:
+            raise RuntimeError("G7 record storage location is outside a measured context")
+        return str(resolved.parent)
 
     def read_meta(self, seq: int) -> dict:
         record = self.read_all_raw()[seq]
-        return {
-            "physicalWorkspaceIdentity":
-                record.fields["envelope"]["payload"]["physicalWorkspaceIdentity"]
-        }
+        return copy.deepcopy({
+            key: value for key, value in record.fields["envelope"].items()
+            if key != "payload"
+        })
 
     def write_meta(self, seq: int, meta: dict) -> None:
+        """Persist exactly ``meta`` as envelope metadata, preserving content."""
+        if not isinstance(meta, dict):
+            raise TypeError("G7 metadata must be a dictionary")
         record = self.read_all_raw()[seq]
-        identity = (self._other_identity if meta.get("agmi_meta_tampered")
-                    else meta["physicalWorkspaceIdentity"])
-        record.fields["envelope"]["physicalWorkspaceIdentity"] = identity
-        record.fields["envelope"]["payload"]["physicalWorkspaceIdentity"] = identity
+        payload = record.fields["envelope"]["payload"]
+        if "physicalWorkspaceIdentity" in meta:
+            payload["physicalWorkspaceIdentity"] = meta["physicalWorkspaceIdentity"]
+        record.fields["envelope"] = copy.deepcopy(meta)
+        record.fields["envelope"]["payload"] = payload
         self.write_raw(record)
 
     def snapshot_store(self) -> object:
